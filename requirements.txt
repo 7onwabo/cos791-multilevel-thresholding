@@ -1,0 +1,13 @@
+# Core numerics / imaging — cross-platform pip wheels (macOS + Windows)
+numpy>=1.26,<3
+scipy>=1.11
+scikit-image>=0.22      # SSIM, image IO helpers
+imageio>=2.31           # robust PNG loading
+
+# Data handling / reporting
+pandas>=2.1
+matplotlib>=3.8         # convergence curves, visual outputs
+tqdm>=4.66              # progress bars for long DE runs
+
+# Testing
+pytest>=8.0
