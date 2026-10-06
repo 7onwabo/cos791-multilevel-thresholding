@@ -50,10 +50,10 @@ docs/            assignment brief + background papers
 src/thresholding/
   config.py      K levels {3,5,7,9,11,12}, runs, seeds, paths        [§1.1]
   histogram.py   image -> normalised 256-bin histogram
-  datasets.py    load_bds500(), load_bds500_ground_truth(), load_chaos()
+  datasets.py    load_bds500(), load_chaos()
   objectives/    otsu.py, kapur.py, tsallis.py + OBJECTIVES registry  [§1.2]
   optimizers/    DE / JADE / SHADE / L-SHADE / LADE (stubs)           [§1.3]
-  metrics/       PSNR, SSIM, uniformity, Jaccard, Dice (stubs)        [§2]
+  metrics/       PSNR, SSIM, uniformity, class separability          [§2]
 scripts/run_experiments.py   master reproducibility script (skeleton)
 tests/           pytest suite (objectives covered)
 results/         generated tables/plots (gitignored)
@@ -75,7 +75,7 @@ each dev owns 2 DE variants plus an analysis slice.
 | Dev | DE variants | Also owns |
 |-----|-------------|-----------|
 | A   | Standard DE (`DE/rand/1/bin`), JADE | Phase-1 reconstruction metrics (PSNR/SSIM/U) |
-| B   | SHADE, L-SHADE (LPSR)               | Phase-2 metrics (Jaccard/Dice), GT matching  |
+| B   | SHADE, L-SHADE (LPSR)               | Phase-2 unsupervised class separability       |
 | C   | LADE (Late Acceptance DE)           | Stats (Wilcoxon/Friedman), convergence plots, report |
 
 Each variant subclasses `BaseOptimizer` in `src/thresholding/optimizers/base.py`
