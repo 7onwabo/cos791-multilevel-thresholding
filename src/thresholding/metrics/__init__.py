@@ -1,75 +1,102 @@
-"""Evaluation metrics (Assignment section 2) -- STUBS.
-
-Phase 1 (BDS500) reconstruction quality:
-    psnr, ssim, uniformity
-Phase 2 (CHAOS MRI) unsupervised segmentation quality:
-    class_separability  (eta = sigma_B^2 / sigma_T^2)
-
-The brief's updated Experiment 2 drops the ground-truth overlap metrics in
-favour of eta; ``jaccard``/``dice`` are kept only in case the lecturer restores
-them.
-
-Implemented later; signatures are fixed now so the runner/report code can be
-written against them. ``ssim`` will wrap ``skimage.metrics.structural_similarity``.
-"""
+"""Image reconstruction and unsupervised segmentation metrics."""
 
 from __future__ import annotations
 
 import numpy as np
-
-from ..config import EPSILON
-from ..histogram import normalised_histogram
-from ..objectives.otsu import otsu
+from skimage.metrics import structural_similarity as _sk_ssim
 
 
 def _segment(image: np.ndarray, thresholds) -> np.ndarray:
     """Map each pixel to its class mean intensity (reconstructed image)."""
-    raise NotImplementedError("metrics._segment -- Assignment section 2")
+    img = np.asanyarray(image, dtype=np.float64)
+    t = sorted(int(round(x)) for x in thresholds)
 
+    lo = float(img.min())
+    hi = float(img.max())
+    edges = [lo - 1.0] + [float(x) for x in t] + [hi]
 
-def psnr(original: np.ndarray, thresholds) -> float:
+    class_map = np.zeros(img.shape, dtype=np.int32)
+    reconstructed = np.zeros(img.shape, dtype=np.float64)
+
+    for k in range(len(edges) - 1):
+        low, high = edges[k], edges[k + 1]
+        mask = (img <= high) if k == 0 else ((img > low) & (img <= high))
+        if not np.any(mask):
+            continue
+
+        class_map[mask] = k
+        reconstructed[mask] = img[mask].mean()
+
+    return reconstructed, class_map
+
+def psnr(original: np.ndarray, thresholds, data_range: float | None = None) -> float:
     """Peak Signal-to-Noise Ratio between original and thresholded reconstruction."""
-    raise NotImplementedError("metrics.psnr -- Assignment section 2")
+    img = np.asarray(original, dtype=np.float64)
+    reconstructed, _ = _segment(img, thresholds)
 
+    mse = np.mean((img - reconstructed) ** 2)
+    if mse == 0:
+        return float("inf")
 
-def ssim(original: np.ndarray, thresholds) -> float:
+    if data_range is None:
+        data_range = img.max() - img.min()
+        if data_range == 0:
+            data_range = 1.0
+
+    return 10.0 * np.log10((data_range ** 2) / mse)
+
+def ssim(original: np.ndarray, thresholds, data_range: float | None = None) -> float:
     """Structural Similarity Index (wrap skimage.metrics.structural_similarity)."""
-    raise NotImplementedError("metrics.ssim -- Assignment section 2")
+    img = np.asarray(original, dtype=np.float64)
+    reconstructed, _ = _segment(img, thresholds)
+
+    if data_range is None:
+        data_range = img.max() - img.min()
+        if data_range == 0:
+            data_range = 1.0
+
+    return float(_sk_ssim(img, reconstructed, data_range=data_range))
 
 
 def uniformity(original: np.ndarray, thresholds) -> float:
     """Feature Uniformity metric U across the K+1 thresholded regions."""
-    raise NotImplementedError("metrics.uniformity -- Assignment section 2")
+    img = np.asarray(original, dtype=np.float64)
+    _, class_map = _segment(img, thresholds)
 
+    n = img.size
+    intensity_rate_sq = (img.max() - img.min()) ** 2
+    if intensity_rate_sq == 0:
+        return 1.0
 
-def class_separability(image: np.ndarray, thresholds) -> float:
-    """Class Separability eta = sigma_B^2 / sigma_T^2 (Experiment 2, CHAOS MRI).
+    total_within_class_variance = 0.0
+    for c in np.unique(class_map):
+        region = img[class_map == c]
+        mu = region.mean()
+        total_within_class_variance += np.sum((region - mu) ** 2)
 
-    How distinctly the thresholded intensity classes are separated, as a
-    fraction of the image's total intensity variance. Unsupervised -- no ground
-    truth needed, which is why the brief uses it for CHAOS. Range [0, 1]:
-    eta -> 1 means the thresholds explain all of the image's variance.
+    u = 1.0 - (2.0 * total_within_class_variance) / (n * intensity_rate_sq)
+    return float(u)
 
-    sigma_B^2 is the between-class variance, i.e. exactly the Otsu objective, so
-    this reuses ``objectives.otsu`` rather than recomputing it.
+def class_separability(original: np.ndarray, thresholds) -> float:
+    """Return weighted between-class variance divided by total image variance.
+
+    The score is 0 when threshold classes have identical means and approaches
+    1 as the classes explain more of the image's intensity variance.
     """
-    hist = normalised_histogram(image)
-    levels = np.arange(hist.shape[0])
-    mean = float(np.dot(levels, hist))
-    total_var = float(np.dot((levels - mean) ** 2, hist))
-    if total_var < EPSILON:
-        return 0.0                      # flat image: nothing to separate
-    return otsu(hist, thresholds) / total_var
+    img = np.asarray(original, dtype=np.float64)
+    _, class_map = _segment(img, thresholds)
+    total_variance = float(np.var(img))
+    if total_variance == 0.0:
+        return 0.0
+
+    global_mean = float(np.mean(img))
+    between_class_variance = 0.0
+    n = img.size
+    for c in np.unique(class_map):
+        region = img[class_map == c]
+        between_class_variance += (region.size / n) * (float(region.mean()) - global_mean) ** 2
+
+    return float(between_class_variance / total_variance)
 
 
-def jaccard(pred_mask: np.ndarray, gt_mask: np.ndarray) -> float:
-    """Jaccard index (IoU) between predicted and ground-truth masks."""
-    raise NotImplementedError("metrics.jaccard -- Assignment section 2 (Phase 2)")
-
-
-def dice(pred_mask: np.ndarray, gt_mask: np.ndarray) -> float:
-    """Dice coefficient between predicted and ground-truth masks."""
-    raise NotImplementedError("metrics.dice -- Assignment section 2 (Phase 2)")
-
-
-__all__ = ["psnr", "ssim", "uniformity", "class_separability", "jaccard", "dice"]
+__all__ = ["psnr", "ssim", "uniformity", "class_separability"]

@@ -82,7 +82,7 @@ def main() -> None:
                             path = out_dir / f"{ds_name}__{img_name}__{obj}__K{k}__{opt}.json"
                             if path.exists():
                                 continue
-                            runs = [run_one(hist, obj, opt, k, r, args.max_fes)
+                            runs = [run_one(img, hist, obj, opt, k, r, args.max_fes)
                                 for r in range(args.runs)]
     
                             path.write_text(json.dumps(runs))
