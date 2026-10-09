@@ -24,6 +24,7 @@ Stages can be skipped with --skip-experiments / --skip-plots / --skip-summary /
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -82,7 +83,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--workers", type=int, default=None,
                    help="parallel workers for the experiment grid (default: all cores)")
     p.add_argument("--force", action="store_true",
-                   help="re-run combinations even if their result files already exist")
+                   help="delete cached results (experiments and q sweep) and regenerate them")
     p.add_argument("--skip-experiments", action="store_true")
     p.add_argument("--skip-plots", action="store_true")
     p.add_argument("--skip-summary", action="store_true")
@@ -97,12 +98,36 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
+def clear_results(args, out_dir: Path) -> None:
+    """Delete cached results so --force regenerates everything."""
+    paths = [*out_dir.glob(f"{args.dataset}__*.json"), *(out_dir / "q_sweep" / "raw").glob("*.json")]
+    for path in paths:
+        path.unlink()
+    print(f"--force: removed {len(paths)} cached result files from {out_dir}")
+
+
+def check_stale_results(args, out_dir: Path) -> None:
+    """Refuse to reuse result files written before the current metric/optimizer code.
+
+    Cached files are skipped rather than re-run, so files from older code would be
+    silently mixed into the tables. Those files predate ``evals_history``.
+    """
+    existing = sorted(out_dir.glob(f"{args.dataset}__*.json"))
+    if not existing:
+        return
+    stale = [p for p in existing
+             if not all("evals_history" in r for r in json.loads(p.read_text()))]
+    if stale:
+        sys.exit(f"{len(stale)} of {len(existing)} result files in {out_dir} were written by "
+                 f"older code (e.g. {stale[0].name}). Re-run with --force or delete {out_dir}.")
+    print(f"Reusing {len(existing)} existing result files in {out_dir} "
+          f"(use --force to regenerate them).")
+
+
 def run_experiments(args, out_dir: Path, n_images: int) -> None:
     # One call for the whole grid keeps every worker busy; run_experiments.py
     # skips (image, objective, K, optimizer) files that already exist.
-    if args.force:
-        for path in out_dir.glob(f"{args.dataset}__*.json"):
-            path.unlink()
+    check_stale_results(args, out_dir)
     cmd = [
         sys.executable, str(SCRIPTS / "run_experiments.py"),
         "--dataset", args.dataset,
@@ -231,6 +256,8 @@ def run_dataset(args) -> None:
     n_images = args.n_images or cfg["n_images"]
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"===== dataset={args.dataset} -> {out_dir} =====")
+    if args.force:
+        clear_results(args, out_dir)
 
     if not args.skip_experiments:
         run_experiments(args, out_dir, n_images)

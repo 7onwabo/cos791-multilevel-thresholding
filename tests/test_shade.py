@@ -1,7 +1,6 @@
 """Sanity test for shade optimizer."""
 
 import numpy as np
-import pytest
 from thresholding.optimizers.shade import SHADE
 
 def test_shade():

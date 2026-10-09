@@ -198,6 +198,8 @@ def main() -> None:
     print(f"\nDone. {completed - failed}/{len(tasks)} succeeded, "
           f"{failed} failed.  Wall time: {h}h {m}m {sec}s")
     print(f"Results saved to {out_dir.resolve()}/")
+    if failed:
+        sys.exit(f"{failed} task(s) failed -- results are incomplete.")
 
 
 if __name__ == "__main__":

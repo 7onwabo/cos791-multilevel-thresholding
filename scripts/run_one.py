@@ -4,7 +4,6 @@ Builds a fitness function for one image, create an optimiser with a specific see
 """
 
 import time
-import numpy as np
 
 from thresholding.config import RANDOM_SEED, threshold_bounds
 from thresholding.objectives import OBJECTIVES

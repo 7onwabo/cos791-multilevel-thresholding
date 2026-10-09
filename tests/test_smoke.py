@@ -3,7 +3,6 @@ import numpy as np
 from thresholding.histogram import normalised_histogram
 from thresholding.datasets import load_bds500
 from thresholding.objectives import OBJECTIVES
-import pytest
 
 def test_smoke():
     img = next(iter(load_bds500().values()))
