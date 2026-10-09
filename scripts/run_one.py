@@ -4,7 +4,6 @@ Builds a fitness function for one image, create an optimiser with a specific see
 """
 
 import time
-import numpy as np
 
 from thresholding.config import RANDOM_SEED, threshold_bounds
 from thresholding.objectives import OBJECTIVES
@@ -12,9 +11,12 @@ from thresholding.objectives._base import sanitise_thresholds
 from thresholding.optimizers import OPTIMIZERS
 from thresholding.metrics import psnr, ssim, uniformity, class_separability
 
-def run_one(image, hist, obj_name, opt_name, k, run_idx, max_fes):
+def run_one(image, hist, obj_name, opt_name, k, run_idx, max_fes, q=None):
     objective = OBJECTIVES[obj_name]
-    fitness = lambda x: objective(hist, x)
+    if q is not None:  # Tsallis q override for the q-sensitivity sweep
+        fitness = lambda x: objective(hist, x, q=q)
+    else:
+        fitness = lambda x: objective(hist, x)
 
     opt = OPTIMIZERS[opt_name](
         fitness, threshold_bounds(k),
@@ -32,6 +34,7 @@ def run_one(image, hist, obj_name, opt_name, k, run_idx, max_fes):
         "thresholds": sanitise_thresholds(res.best_solution),
         "fitness": res.best_fitness,
         "history": res.history,
+        "evals_history": res.evals_history,
         "n_evals": res.n_evals,
         "time": elapsed,
         "psnr": psnr(image, thresholds),

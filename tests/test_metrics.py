@@ -128,6 +128,15 @@ def test_uniformity_more_thresholds_is_better():
     assert u7 > u2, f"7 thresholds ({u7:.4f}) should beat 2 ({u2:.4f}) on a gradient"
 
 
+def test_uniformity_scales_with_number_of_thresholds():
+    """Sahoo's U weights within-class scatter by c = number of thresholds."""
+    img = np.array([[0, 10], [100, 110]], dtype=np.uint8)
+    # c=1: classes {0,10},{100,110}; scatter 100.  c=2: {0,10},{100},{110}; scatter 50.
+    expected = 1.0 - 200.0 / (4 * 110 ** 2)
+    assert uniformity(img, [50]) == pytest.approx(expected)
+    assert uniformity(img, [50, 105]) == pytest.approx(expected)
+
+
 def test_uniformity_perfect_split():
     """Two-class image with threshold at class boundary -> U Γëê 1.0."""
     img = np.zeros((64, 64), dtype=np.uint8)

@@ -66,6 +66,7 @@ class LateAcceptanceDE(BaseOptimizer):
         b = int(np.argmax(fit))
         best_x, best_f = pop[b].copy(), float(fit[b])
         history = [best_f]
+        evals_history = [evals]
         self.trace: list[tuple[int, int]] = []   # (evals, accepted this generation)
 
         g = 0
@@ -109,7 +110,8 @@ class LateAcceptanceDE(BaseOptimizer):
                     mem[i, v] = fit[i]
 
             history.append(best_f)
+            evals_history.append(evals)
             self.trace.append((evals, accepted))
             g += 1
 
-        return OptResult(best_x, best_f, history, evals)
+        return OptResult(best_x, best_f, history, evals, evals_history)

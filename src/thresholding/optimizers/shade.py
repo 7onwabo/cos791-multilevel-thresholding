@@ -39,6 +39,7 @@ class SHADE(BaseOptimizer):
         k = 0
         archive: list[np.ndarray] = []
         history = [fit.max()]
+        evals_history = [evals]
 
         #Sample CR and F for every individual in the population
         while evals < self.max_fes:
@@ -112,6 +113,7 @@ class SHADE(BaseOptimizer):
                 k = (k + 1) % self.H
 
             history.append(fit.max())
+            evals_history.append(evals)
 
         best = np.argmax(fit)
-        return OptResult(pop[best].copy(), float(fit[best]), history, evals)
+        return OptResult(pop[best].copy(), float(fit[best]), history, evals, evals_history)

@@ -11,7 +11,10 @@ Contract:
     objective sanitises it (round + sort) so the optimizer may work in continuous
     space and need not enforce integrality/ordering itself.
   * Termination is by function-evaluation budget (``max_fes``) for a fair
-    cross-algorithm comparison (Assignment section 3).
+    cross-algorithm comparison (Assignment section 3). Variants spend that
+    budget over very different generation counts, so ``evals_history`` records
+    the FEs consumed at each ``history`` point and convergence is plotted
+    against FEs, not generations.
 """
 
 from __future__ import annotations
@@ -33,6 +36,7 @@ class OptResult:
     best_fitness: float                  # its objective value
     history: list[float] = field(default_factory=list)  # best-so-far per generation
     n_evals: int = 0                     # function evaluations consumed
+    evals_history: list[int] = field(default_factory=list)  # FEs spent at each history point
 
 
 class BaseOptimizer(ABC):
