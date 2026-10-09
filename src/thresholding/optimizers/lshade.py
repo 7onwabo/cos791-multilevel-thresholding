@@ -40,12 +40,15 @@ class LSHADE(BaseOptimizer):
         k = 0
         archive: list[np.ndarray] = []
         history = [fit.max()]
+        evals_history = [evals]
         self.trace: list[tuple[int, int, int]] = []
 
         #Sample CR and F for every individual in the population
         while evals < self.max_fes:
             r = self.rng.integers(0, self.H, N)
-            CR = np.clip(self.rng.normal(M_CR[r], 0.1), 0.0, 1.0)
+            # A terminal memory slot (NaN, the paper's ⊥) pins CR to 0
+            CR = np.where(np.isnan(M_CR[r]), 0.0,
+                          np.clip(self.rng.normal(M_CR[r], 0.1), 0.0, 1.0))
 
             F = M_F[r] + 0.1 * self.rng.standard_cauchy(N)
             while np.any(F <= 0):
@@ -119,12 +122,17 @@ class LSHADE(BaseOptimizer):
             if S_CR:
                 w = np.array(dF) / np.sum(dF)
                 S_CR, sF = np.array(S_CR), np.array(S_F)
-                M_CR[k] = np.sum(w * S_CR)
+                # L-SHADE uses the weighted Lehmer mean for CR as well as F
+                if np.isnan(M_CR[k]) or S_CR.max() == 0:
+                    M_CR[k] = np.nan
+                else:
+                    M_CR[k] = np.sum(w * S_CR**2) / np.sum(w * S_CR)
                 M_F[k] = np.sum(w * sF**2) / np.sum(w * sF)
                 k = (k + 1) % self.H
 
             self.trace.append((evals, N, len(archive)))
             history.append(fit.max())
+            evals_history.append(evals)
 
         best = np.argmax(fit)
-        return OptResult(pop[best].copy(), float(fit[best]), history, evals)
+        return OptResult(pop[best].copy(), float(fit[best]), history, evals, evals_history)

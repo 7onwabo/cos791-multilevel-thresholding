@@ -44,6 +44,7 @@ class StandardDE(BaseOptimizer):
         fit = np.array([self.fitness(x) for x in pop])
         evals = N
         history = [float(fit.max())]
+        evals_history = [evals]
 
         # --- Main loop --------------------------------------------------------
         while evals < self.max_fes:
@@ -79,6 +80,7 @@ class StandardDE(BaseOptimizer):
 
             pop, fit = new_pop, new_fit
             history.append(float(fit.max()))
+            evals_history.append(evals)
 
         best = int(np.argmax(fit))
-        return OptResult(pop[best].copy(), float(fit[best]), history, evals)
+        return OptResult(pop[best].copy(), float(fit[best]), history, evals, evals_history)

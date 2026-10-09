@@ -53,6 +53,7 @@ class JADE(BaseOptimizer):
 
         archive: list[np.ndarray] = []
         history = [float(fit.max())]
+        evals_history = [evals]
 
         # --- Main loop --------------------------------------------------------
         while evals < self.max_fes:
@@ -129,6 +130,7 @@ class JADE(BaseOptimizer):
                 mu_F = (1 - c) * mu_F + c * float(np.sum(S_F_arr ** 2) / np.sum(S_F_arr))
 
             history.append(float(fit.max()))
+            evals_history.append(evals)
 
         best = int(np.argmax(fit))
-        return OptResult(pop[best].copy(), float(fit[best]), history, evals)
+        return OptResult(pop[best].copy(), float(fit[best]), history, evals, evals_history)

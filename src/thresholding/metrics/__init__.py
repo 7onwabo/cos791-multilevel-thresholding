@@ -5,6 +5,12 @@ from __future__ import annotations
 import numpy as np
 from skimage.metrics import structural_similarity as _sk_ssim
 
+from ..config import GRAY_LEVELS
+
+# Peak value for 8-bit images: PSNR = 20 log10(255 / RMSE) and SSIM constants
+# c1 = (0.01 * 255)^2, c2 = (0.03 * 255)^2, as in Lecture 7.
+PEAK = float(GRAY_LEVELS - 1)
+
 
 def _segment(image: np.ndarray, thresholds) -> np.ndarray:
     """Map each pixel to its class mean intensity (reconstructed image)."""
@@ -29,7 +35,7 @@ def _segment(image: np.ndarray, thresholds) -> np.ndarray:
 
     return reconstructed, class_map
 
-def psnr(original: np.ndarray, thresholds, data_range: float | None = None) -> float:
+def psnr(original: np.ndarray, thresholds, data_range: float = PEAK) -> float:
     """Peak Signal-to-Noise Ratio between original and thresholded reconstruction."""
     img = np.asarray(original, dtype=np.float64)
     reconstructed, _ = _segment(img, thresholds)
@@ -38,28 +44,23 @@ def psnr(original: np.ndarray, thresholds, data_range: float | None = None) -> f
     if mse == 0:
         return float("inf")
 
-    if data_range is None:
-        data_range = img.max() - img.min()
-        if data_range == 0:
-            data_range = 1.0
-
     return 10.0 * np.log10((data_range ** 2) / mse)
 
-def ssim(original: np.ndarray, thresholds, data_range: float | None = None) -> float:
+def ssim(original: np.ndarray, thresholds, data_range: float = PEAK) -> float:
     """Structural Similarity Index (wrap skimage.metrics.structural_similarity)."""
     img = np.asarray(original, dtype=np.float64)
     reconstructed, _ = _segment(img, thresholds)
-
-    if data_range is None:
-        data_range = img.max() - img.min()
-        if data_range == 0:
-            data_range = 1.0
 
     return float(_sk_ssim(img, reconstructed, data_range=data_range))
 
 
 def uniformity(original: np.ndarray, thresholds) -> float:
-    """Feature Uniformity metric U across the K+1 thresholded regions."""
+    """Feature Uniformity metric U across the K+1 thresholded regions.
+
+    Sahoo et al. (1988):
+        U = 1 - 2c * sum_j sum_{i in R_j} (f_i - mu_j)^2 / (N * (f_max - f_min)^2)
+    where c is the number of thresholds.
+    """
     img = np.asarray(original, dtype=np.float64)
     _, class_map = _segment(img, thresholds)
 
@@ -74,7 +75,8 @@ def uniformity(original: np.ndarray, thresholds) -> float:
         mu = region.mean()
         total_within_class_variance += np.sum((region - mu) ** 2)
 
-    u = 1.0 - (2.0 * total_within_class_variance) / (n * intensity_rate_sq)
+    c = len(thresholds)
+    u = 1.0 - (2.0 * c * total_within_class_variance) / (n * intensity_rate_sq)
     return float(u)
 
 def class_separability(original: np.ndarray, thresholds) -> float:
