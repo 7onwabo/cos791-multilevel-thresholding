@@ -1,94 +1,102 @@
-"""Evaluation metrics (Assignment section 2).
-
-Phase 1 (BDS500) reconstruction quality:
-    psnr, ssim, uniformity          ← Dev A
-Phase 2 (CHAOS MRI) segmentation overlap vs ground truth:
-    jaccard, dice                   ← Dev B (stubs)
-
-The segmentation helper ``_segment`` uses the same class convention as
-``objectives._base`` (edges = [-1, t_1, ..., t_K, L-1]) so that the regions
-measured here match the regions the optimizer actually optimised.
-"""
+"""Image reconstruction and unsupervised segmentation metrics."""
 
 from __future__ import annotations
 
 import numpy as np
-from skimage.metrics import structural_similarity as skimage_ssim
-from skimage.metrics import peak_signal_noise_ratio as skimage_psnr
-
-from ..objectives._base import sanitise_thresholds
+from skimage.metrics import structural_similarity as _sk_ssim
 
 
 def _segment(image: np.ndarray, thresholds) -> np.ndarray:
-    """Map each pixel to its class mean intensity (reconstructed image).
+    """Map each pixel to its class mean intensity (reconstructed image)."""
+    img = np.asanyarray(image, dtype=np.float64)
+    t = sorted(int(round(x)) for x in thresholds)
 
-    Uses the same boundary convention as ``objectives._base.class_masses``:
-        C_0 = [0, t_1],  C_1 = (t_1, t_2],  ...,  C_K = (t_K, 255]
-    """
-    t = sanitise_thresholds(thresholds)
-    edges = [-1, *t, 255]
+    lo = float(img.min())
+    hi = float(img.max())
+    edges = [lo - 1.0] + [float(x) for x in t] + [hi]
 
-    reconstructed = np.zeros_like(image, dtype=np.float64)
-    for c in range(len(t) + 1):
-        lo = edges[c] + 1
-        hi = edges[c + 1]
-        mask = (image >= lo) & (image <= hi)
-        if np.any(mask):
-            reconstructed[mask] = np.mean(image[mask].astype(np.float64))
+    class_map = np.zeros(img.shape, dtype=np.int32)
+    reconstructed = np.zeros(img.shape, dtype=np.float64)
 
-    return reconstructed
+    for k in range(len(edges) - 1):
+        low, high = edges[k], edges[k + 1]
+        mask = (img <= high) if k == 0 else ((img > low) & (img <= high))
+        if not np.any(mask):
+            continue
 
+        class_map[mask] = k
+        reconstructed[mask] = img[mask].mean()
 
-def psnr(original: np.ndarray, thresholds) -> float:
+    return reconstructed, class_map
+
+def psnr(original: np.ndarray, thresholds, data_range: float | None = None) -> float:
     """Peak Signal-to-Noise Ratio between original and thresholded reconstruction."""
-    reconstructed = _segment(original, thresholds)
-    return float(skimage_psnr(original.astype(np.float64), reconstructed, data_range=255))
+    img = np.asarray(original, dtype=np.float64)
+    reconstructed, _ = _segment(img, thresholds)
 
+    mse = np.mean((img - reconstructed) ** 2)
+    if mse == 0:
+        return float("inf")
 
-def ssim(original: np.ndarray, thresholds) -> float:
-    """Structural Similarity Index (wraps ``skimage.metrics.structural_similarity``)."""
-    reconstructed = _segment(original, thresholds)
-    return float(skimage_ssim(original.astype(np.float64), reconstructed, data_range=255))
+    if data_range is None:
+        data_range = img.max() - img.min()
+        if data_range == 0:
+            data_range = 1.0
+
+    return 10.0 * np.log10((data_range ** 2) / mse)
+
+def ssim(original: np.ndarray, thresholds, data_range: float | None = None) -> float:
+    """Structural Similarity Index (wrap skimage.metrics.structural_similarity)."""
+    img = np.asarray(original, dtype=np.float64)
+    reconstructed, _ = _segment(img, thresholds)
+
+    if data_range is None:
+        data_range = img.max() - img.min()
+        if data_range == 0:
+            data_range = 1.0
+
+    return float(_sk_ssim(img, reconstructed, data_range=data_range))
 
 
 def uniformity(original: np.ndarray, thresholds) -> float:
-    """Feature Uniformity metric U across the K+1 thresholded regions.
+    """Feature Uniformity metric U across the K+1 thresholded regions."""
+    img = np.asarray(original, dtype=np.float64)
+    _, class_map = _segment(img, thresholds)
 
-    U = 1 − (within-class variance) / (total variance)
+    n = img.size
+    intensity_rate_sq = (img.max() - img.min()) ** 2
+    if intensity_rate_sq == 0:
+        return 1.0
 
-    Ranges from 0 (poor segmentation) to 1 (perfect: all variance is
-    between classes, none within). Equivalent to σ²_between / σ²_total.
+    total_within_class_variance = 0.0
+    for c in np.unique(class_map):
+        region = img[class_map == c]
+        mu = region.mean()
+        total_within_class_variance += np.sum((region - mu) ** 2)
+
+    u = 1.0 - (2.0 * total_within_class_variance) / (n * intensity_rate_sq)
+    return float(u)
+
+def class_separability(original: np.ndarray, thresholds) -> float:
+    """Return weighted between-class variance divided by total image variance.
+
+    The score is 0 when threshold classes have identical means and approaches
+    1 as the classes explain more of the image's intensity variance.
     """
-    t = sanitise_thresholds(thresholds)
-    edges = [-1, *t, 255]
+    img = np.asarray(original, dtype=np.float64)
+    _, class_map = _segment(img, thresholds)
+    total_variance = float(np.var(img))
+    if total_variance == 0.0:
+        return 0.0
 
-    img = original.astype(np.float64)
-    total_var = float(np.var(img))
-    if total_var < 1e-12:
-        return 1.0  # constant image is perfectly uniform
+    global_mean = float(np.mean(img))
+    between_class_variance = 0.0
+    n = img.size
+    for c in np.unique(class_map):
+        region = img[class_map == c]
+        between_class_variance += (region.size / n) * (float(region.mean()) - global_mean) ** 2
 
-    N = img.size
-    within_var = 0.0
-    for c in range(len(t) + 1):
-        lo = edges[c] + 1
-        hi = edges[c + 1]
-        mask = (img >= lo) & (img <= hi)
-        n_c = int(np.sum(mask))
-        if n_c > 0:
-            within_var += n_c * float(np.var(img[mask]))
-
-    within_var /= N
-    return float(1.0 - within_var / total_var)
+    return float(between_class_variance / total_variance)
 
 
-def jaccard(pred_mask: np.ndarray, gt_mask: np.ndarray) -> float:
-    """Jaccard index (IoU) between predicted and ground-truth masks."""
-    raise NotImplementedError("metrics.jaccard -- Assignment section 2 (Phase 2, Dev B)")
-
-
-def dice(pred_mask: np.ndarray, gt_mask: np.ndarray) -> float:
-    """Dice coefficient between predicted and ground-truth masks."""
-    raise NotImplementedError("metrics.dice -- Assignment section 2 (Phase 2, Dev B)")
-
-
-__all__ = ["psnr", "ssim", "uniformity", "jaccard", "dice"]
+__all__ = ["psnr", "ssim", "uniformity", "class_separability"]
