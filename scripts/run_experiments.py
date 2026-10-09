@@ -2,7 +2,8 @@
 
 Runs every combination of (dataset, image, objective, K, optimizer) for N_RUNS
 statistical repeats.  Results include optimiser output (thresholds, fitness,
-convergence history) and Phase-1 reconstruction metrics (PSNR, SSIM, U).
+convergence history) and reconstruction metrics (PSNR, SSIM, U, class
+separability) computed by ``run_one``.
 
 Uses multiprocessing to parallelise across CPU cores.
 
@@ -33,7 +34,6 @@ from run_one import run_one                          # noqa: E402
 from thresholding.config import K_LEVELS, MAX_FES, N_RUNS  # noqa: E402
 from thresholding.datasets import load_bds500, load_chaos   # noqa: E402
 from thresholding.histogram import normalised_histogram      # noqa: E402
-from thresholding.metrics import psnr, ssim, uniformity      # noqa: E402
 from thresholding.objectives import OBJECTIVES               # noqa: E402
 from thresholding.optimizers import OPTIMIZERS               # noqa: E402
 
@@ -52,15 +52,15 @@ def _run_task(task: dict) -> dict:
     """
     runs = []
     for r in range(task["n_runs"]):
-        result = run_one(task["hist"], task["obj"], task["opt"],
-                         task["k"], r, task["max_fes"])
+        # run_one computes psnr / ssim / uniformity / class_separability
+        result = run_one(task["image"], task["hist"], task["obj"],
+                         task["opt"], task["k"], r, task["max_fes"])
 
-        # Compute Phase-1 reconstruction metrics on the original image
-        t = result["thresholds"]
-        p = psnr(task["image"], t)
-        result["psnr"] = float(p) if np.isfinite(p) else 999.0
-        result["ssim"] = float(ssim(task["image"], t))
-        result["uniformity"] = float(uniformity(task["image"], t))
+        # Keep JSON strictly valid (PSNR is inf for a perfect reconstruction)
+        p = float(result["psnr"])
+        result["psnr"] = p if np.isfinite(p) else 999.0
+        for key in ("ssim", "uniformity", "class_separability"):
+            result[key] = float(result[key])
         runs.append(result)
 
     Path(task["out_path"]).write_text(json.dumps(runs))
@@ -73,6 +73,7 @@ def _run_task(task: dict) -> dict:
         "mean_psnr":    float(np.mean([r["psnr"] for r in runs])),
         "mean_ssim":    float(np.mean([r["ssim"] for r in runs])),
         "mean_u":       float(np.mean([r["uniformity"] for r in runs])),
+        "mean_eta":     float(np.mean([r["class_separability"] for r in runs])),
     }
 
 
@@ -183,7 +184,8 @@ def main() -> None:
                     f"fitness={s['mean_fitness']:.5f} +/- {s['std_fitness']:.5f}  "
                     f"PSNR={s['mean_psnr']:.2f}  "
                     f"SSIM={s['mean_ssim']:.4f}  "
-                    f"U={s['mean_u']:.4f}"
+                    f"U={s['mean_u']:.4f}  "
+                    f"eta={s['mean_eta']:.4f}"
                 )
             except Exception as exc:
                 failed += 1

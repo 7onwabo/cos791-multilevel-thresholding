@@ -50,10 +50,10 @@ docs/            assignment brief + background papers
 src/thresholding/
   config.py      K levels {3,5,7,9,11,12}, runs, seeds, paths        [§1.1]
   histogram.py   image -> normalised 256-bin histogram
-  datasets.py    load_bds500(), load_bds500_ground_truth(), load_chaos()
+  datasets.py    load_bds500(), load_chaos()
   objectives/    otsu.py, kapur.py, tsallis.py + OBJECTIVES registry  [§1.2]
-  optimizers/    DE / JADE / SHADE / L-SHADE / LADE (stubs)           [§1.3]
-  metrics/       PSNR, SSIM, uniformity, Jaccard, Dice (stubs)        [§2]
+  optimizers/    SHADE, L-SHADE, LADE done; DE, JADE stubs           [§1.3]
+  metrics/       PSNR, SSIM, uniformity, class separability          [§2]
 scripts/run_experiments.py   master reproducibility script (skeleton)
 tests/           pytest suite (objectives covered)
 results/         generated tables/plots (gitignored)
@@ -62,8 +62,8 @@ results/         generated tables/plots (gitignored)
 ## Status
 - [x] **§1.1** Threshold levels — `config.K_LEVELS = (3, 5, 7, 9, 11, 12)`
 - [x] **§1.2** Objective functions — Otsu, Kapur, Tsallis (tested)
-- [ ] **§1.3** DE variants — interface (`optimizers/base.py`) ready; bodies are stubs
-- [ ] **§2** Metrics — signatures ready; bodies are stubs
+- [ ] **§1.3** DE variants — SHADE, L-SHADE, LADE implemented + tested; DE, JADE still stubs
+- [x] **§2** Metrics — PSNR, SSIM, uniformity, Class Separability η (= σ²_B/σ²_T, Experiment 2)
 - [ ] Master script wiring, statistical tests, ESWA report
 
 ---
@@ -75,7 +75,7 @@ each dev owns 2 DE variants plus an analysis slice.
 | Dev | DE variants | Also owns |
 |-----|-------------|-----------|
 | A   | Standard DE (`DE/rand/1/bin`), JADE | Phase-1 reconstruction metrics (PSNR/SSIM/U) |
-| B   | SHADE, L-SHADE (LPSR)               | Phase-2 metrics (Jaccard/Dice), GT matching  |
+| B   | SHADE, L-SHADE (LPSR)               | Phase-2 unsupervised class separability (η)  |
 | C   | LADE (Late Acceptance DE)           | Stats (Wilcoxon/Friedman), convergence plots, report |
 
 Each variant subclasses `BaseOptimizer` in `src/thresholding/optimizers/base.py`
