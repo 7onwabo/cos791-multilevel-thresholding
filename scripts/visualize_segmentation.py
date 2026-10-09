@@ -18,10 +18,11 @@ import matplotlib
 matplotlib.use("Agg")  # headless-safe; figures are saved to disk
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
+import imageio.v3 as iio
 import numpy as np
-from PIL import Image
 from skimage.filters import threshold_multiotsu
 
+from thresholding.histogram import to_grayscale
 from thresholding.metrics import _segment
 
 
@@ -57,7 +58,9 @@ def thresholds_auto(image: np.ndarray, k: int) -> list[float]:
 # --------------------------------------------------------------------------
 
 def load_grayscale(path: str) -> np.ndarray:
-    return np.array(Image.open(path).convert("L"), dtype=np.float64)
+    # Same conversion as thresholding.datasets, so the figure shows the exact
+    # image the thresholds were optimised on.
+    return to_grayscale(iio.imread(path)).astype(np.float64)
 
 
 def build_row(ax_orig, ax_hist, ax_seg, img: np.ndarray, thresholds: list[float], row_label: str) -> None:
