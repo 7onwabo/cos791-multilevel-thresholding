@@ -172,6 +172,16 @@ def run_summary(args, out_dir: Path, n_images: int) -> None:
         "--dataset", args.dataset,
     ])
     run([
+        sys.executable, str(SCRIPTS / "eta_plots.py"),
+        "--results-dir", str(out_dir),
+        "--dataset", args.dataset,
+    ])
+    run([
+        sys.executable, str(SCRIPTS / "exhaustive_check.py"),
+        "--results-dir", str(out_dir),
+        "--dataset", args.dataset,
+    ])
+    run([
         sys.executable, str(SCRIPTS / "report_tables.py"),
         "--results-dir", str(out_dir),
         "--dataset", args.dataset,

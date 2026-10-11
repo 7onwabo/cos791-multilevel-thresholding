@@ -82,17 +82,19 @@ tables/          report-ready CSV + LaTeX: <metric>_<objective> (algorithms x K)
                  duplicate_thresholds
 stats/           Friedman ranks, Wilcoxon pairs + W/T/L, rank-sum W/T/L, per metric
 convergence_<objective>.png          relative error vs function evaluations
+eta_vs_k.png, eta_per_image_K12.*    1 - eta vs K (log) and per-image eta spread
+exhaustive_K3*.csv                   exhaustive-search optimum at K = 3 vs each algorithm
 time_vs_k.{csv,png}                  time vs K from the parallel run
 timing/          single-worker time vs K (use these for absolute times)
 comparison_figures/<image>__K<k>.png all algorithms side by side, best run each
 segmentation_figures/                original vs segmented, one algorithm per figure
-q_sweep/         Tsallis q sensitivity vs Otsu/Kapur (L-SHADE, K ∈ {3, 7, 12})
+q_sweep/         Tsallis q sensitivity vs Otsu/Kapur (L-SHADE, K ∈ {3, 7, 12}, q incl. 0.95/1.05)
 <dataset>__<image>__<objective>__K<k>__<algorithm>.json   raw runs
 ```
 
 Each stage is also a standalone script in `scripts/` (`run_experiments.py`,
 `summary_table.py`, `report_tables.py`, `convergence_plot.py`, `scalability.py`,
-`timing.py`, `compare_segmentation.py`, `visualize_segmentation.py`, `q_sweep.py`,
+`timing.py`, `eta_plots.py`, `exhaustive_check.py`, `compare_segmentation.py`, `visualize_segmentation.py`, `q_sweep.py`,
 `parameters_table.py`); run any with `--help`.
 
 ---

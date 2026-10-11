@@ -46,7 +46,7 @@ LOADERS = {"bds500": load_bds500, "chaos": load_chaos}
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Tsallis q-sensitivity sweep")
     p.add_argument("--dataset", choices=sorted(LOADERS), default="bds500")
-    p.add_argument("--qs", nargs="+", type=float, default=[0.3, 0.5, 0.8, 1.2, 1.5, 2.0])
+    p.add_argument("--qs", nargs="+", type=float, default=[0.3, 0.5, 0.8, 0.95, 1.05, 1.2, 1.5, 2.0])
     p.add_argument("--k-levels", nargs="+", type=int, default=[3, 7, 12])
     p.add_argument("--optimizer", default="L-SHADE")
     p.add_argument("--runs", type=int, default=10)
